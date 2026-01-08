@@ -22,8 +22,8 @@ if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
     exit 0
 fi
 
-# Construct download URL
-DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${LATEST_VERSION}/opencode-desktop-linux-amd64.AppImage"
+# Construct download URL (.deb package)
+DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${LATEST_VERSION}/opencode-desktop-linux-amd64.deb"
 
 # Fetch new hash
 echo "Fetching hash for $LATEST_VERSION..."
@@ -39,3 +39,5 @@ sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$LATEST_VERSION\"/" "$PACKA
 sed -i "s|hash = \"sha256-.*\"|hash = \"$SRI_HASH\"|" "$PACKAGE_NIX"
 
 echo "Updated package.nix to version $LATEST_VERSION"
+echo ""
+echo "Don't forget to rebuild: ./install.sh"
