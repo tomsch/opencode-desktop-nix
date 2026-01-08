@@ -11,6 +11,7 @@
   cairo,
   webkitgtk_4_1,
   libsoup_3,
+  gst_all_1,
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
@@ -28,6 +29,13 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     wrapGAppsHook3
   ];
 
+  # Let wrapGAppsHook find GStreamer plugins
+  preFixup = ''
+    gappsWrapperArgs+=(
+      --set OC_ALLOW_WAYLAND 1
+    )
+  '';
+
   buildInputs = [
     glib
     gtk3
@@ -35,6 +43,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     cairo
     webkitgtk_4_1
     libsoup_3
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
   ];
 
   dontConfigure = true;
@@ -54,10 +66,20 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # Install binary
     install -Dm755 usr/bin/OpenCode $out/bin/opencode-desktop
 
-    # Install CLI if available
-    if [ -f usr/bin/opencode-cli ]; then
-      install -Dm755 usr/bin/opencode-cli $out/bin/opencode-cli
-    fi
+    # Create opencode-cli wrapper that finds opencode in PATH or ~/.opencode/bin
+    cat > $out/bin/opencode-cli << 'EOF'
+#!/usr/bin/env bash
+# Wrapper for opencode CLI - searches PATH and ~/.opencode/bin
+if command -v opencode &>/dev/null; then
+  exec opencode "$@"
+elif [ -x "$HOME/.opencode/bin/opencode" ]; then
+  exec "$HOME/.opencode/bin/opencode" "$@"
+else
+  echo "Error: opencode CLI not found. Install via: curl -fsSL https://opencode.ai/install | bash" >&2
+  exit 1
+fi
+EOF
+    chmod +x $out/bin/opencode-cli
 
     # Install desktop file
     install -Dm644 usr/share/applications/OpenCode.desktop $out/share/applications/opencode-desktop.desktop
