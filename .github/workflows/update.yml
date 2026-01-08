@@ -1,0 +1,84 @@
+name: Auto Update
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:        # Manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check for updates
+        id: check
+        run: |
+          # Get latest version from GitHub API
+          VERSION=$(curl -sL "https://api.github.com/repos/anomalyco/opencode/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+          CURRENT=$(grep 'version = ' package.nix | head -1 | sed 's/.*"\(.*\)".*/\1/')
+
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "latest=$VERSION" >> $GITHUB_OUTPUT
+
+          if [ "$VERSION" != "$CURRENT" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update package
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          VERSION="${{ steps.check.outputs.latest }}"
+          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-desktop-linux-amd64.AppImage"
+
+          # Get new hash
+          HASH=$(nix-prefetch-url "$DOWNLOAD_URL" 2>/dev/null)
+          SRI_HASH=$(nix hash convert --to sri --hash-algo sha256 "$HASH")
+
+          # Validate hash
+          if [[ ! "$SRI_HASH" =~ ^sha256- ]]; then
+            echo "ERROR: Invalid SRI hash: $SRI_HASH"
+            exit 1
+          fi
+
+          echo "New hash: $SRI_HASH"
+
+          # Update package.nix
+          sed -i "s/version = \"[^\"]*\"/version = \"$VERSION\"/" package.nix
+          sed -i "s|hash = \"sha256-[^\"]*\"|hash = \"$SRI_HASH\"|" package.nix
+
+          # Show diff
+          git diff package.nix
+
+      - name: Test build
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          nix build .#opencode-desktop --accept-flake-config
+
+      - name: Commit and push
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.nix
+          git commit -m "Update opencode-desktop to ${{ steps.check.outputs.latest }}"
+          git push
+
+      - name: Create Release
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.check.outputs.latest }}" \
+            --title "opencode-desktop ${{ steps.check.outputs.latest }}" \
+            --notes "Updated opencode-desktop from ${{ steps.check.outputs.current }} to ${{ steps.check.outputs.latest }}"
