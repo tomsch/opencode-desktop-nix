@@ -16,11 +16,11 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode-desktop";
-  version = "1.1.45";
+  version = "1.1.47";
 
   src = fetchurl {
     url = "https://github.com/anomalyco/opencode/releases/download/v${finalAttrs.version}/opencode-desktop-linux-amd64.deb";
-    hash = "sha256-3Qi8iwQRoZ29S5dxnDwQSTYzsq1VkD4j4t1lRVt0sw8=";
+    hash = "sha256-/zcbeOArPXRROy5qNryYXH4k+3t1hWe+0xDs3/DwXdc=";
   };
 
   nativeBuildInputs = [
