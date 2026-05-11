@@ -7,11 +7,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_NIX="$SCRIPT_DIR/package.nix"
 
-# Get latest version from GitHub API
 echo "Fetching latest version..."
 LATEST_VERSION=$(curl -sL "https://api.github.com/repos/anomalyco/opencode/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
 
-# Get current version from package.nix
 CURRENT_VERSION=$(grep 'version = ' "$PACKAGE_NIX" | head -1 | sed 's/.*"\(.*\)".*/\1/')
 
 echo "Current version: $CURRENT_VERSION"
@@ -22,22 +20,18 @@ if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
     exit 0
 fi
 
-# Construct download URL (.deb package)
-DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${LATEST_VERSION}/opencode-desktop-linux-amd64.deb"
+# AppImage download URL (anomalyco switched from .deb to .AppImage around v1.14.34)
+DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${LATEST_VERSION}/opencode-desktop-linux-x86_64.AppImage"
 
-# Fetch new hash
 echo "Fetching hash for $LATEST_VERSION..."
 NEW_HASH=$(nix-prefetch-url "$DOWNLOAD_URL" 2>&1 | tail -1)
 SRI_HASH=$(nix hash convert --to sri --hash-algo sha256 "$NEW_HASH")
 
 echo "New SRI hash: $SRI_HASH"
 
-# Update package.nix - version
 sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$LATEST_VERSION\"/" "$PACKAGE_NIX"
-
-# Update package.nix - hash
 sed -i "s|hash = \"sha256-.*\"|hash = \"$SRI_HASH\"|" "$PACKAGE_NIX"
 
 echo "Updated package.nix to version $LATEST_VERSION"
 echo ""
-echo "Don't forget to rebuild: ./install.sh"
+echo "Test build with: nix build .#opencode-desktop"

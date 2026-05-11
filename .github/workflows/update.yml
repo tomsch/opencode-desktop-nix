@@ -22,7 +22,6 @@ jobs:
       - name: Check for updates
         id: check
         run: |
-          # Get latest version from GitHub API
           VERSION=$(curl -sL "https://api.github.com/repos/anomalyco/opencode/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
           CURRENT=$(grep 'version = ' package.nix | head -1 | sed 's/.*"\(.*\)".*/\1/')
 
@@ -39,13 +38,11 @@ jobs:
         if: steps.check.outputs.needs_update == 'true'
         run: |
           VERSION="${{ steps.check.outputs.latest }}"
-          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-desktop-linux-amd64.deb"
+          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-desktop-linux-x86_64.AppImage"
 
-          # Get new hash
           HASH=$(nix-prefetch-url "$DOWNLOAD_URL" 2>/dev/null)
           SRI_HASH=$(nix hash convert --to sri --hash-algo sha256 "$HASH")
 
-          # Validate hash
           if [[ ! "$SRI_HASH" =~ ^sha256- ]]; then
             echo "ERROR: Invalid SRI hash: $SRI_HASH"
             exit 1
@@ -53,11 +50,9 @@ jobs:
 
           echo "New hash: $SRI_HASH"
 
-          # Update package.nix
           sed -i "s/version = \"[^\"]*\"/version = \"$VERSION\"/" package.nix
           sed -i "s|hash = \"sha256-[^\"]*\"|hash = \"$SRI_HASH\"|" package.nix
 
-          # Show diff
           git diff package.nix
 
       - name: Test build
