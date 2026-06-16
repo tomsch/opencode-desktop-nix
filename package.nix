@@ -1,51 +1,140 @@
 {
   lib,
-  appimageTools,
+  stdenvNoCC,
   fetchurl,
+  dpkg,
+  makeWrapper,
+  autoPatchelfHook,
+  wrapGAppsHook3,
+  alsa-lib,
+  at-spi2-atk,
+  at-spi2-core,
+  atk,
+  cairo,
+  cups,
+  dbus,
+  expat,
+  gdk-pixbuf,
+  glib,
+  gtk3,
+  libdrm,
+  libGL,
+  libnotify,
+  libsecret,
+  libx11,
+  libxcb,
+  libxcomposite,
+  libxdamage,
+  libxext,
+  libxfixes,
+  libxkbcommon,
+  libxrandr,
+  libxshmfence,
+  mesa,
+  musl,
+  nspr,
+  nss,
+  pango,
 }:
 
-let
+stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode-desktop";
-  version = "1.16.2";
+  version = "1.17.7";
 
+  # Prefer the Debian archive over the AppImage: upstream AppImage desktop/icon
+  # names changed, while the .deb keeps the Electron install layout stable.
   src = fetchurl {
-    url = "https://github.com/anomalyco/opencode/releases/download/v${version}/${pname}-linux-x86_64.AppImage";
-    hash = "sha256-4G/PDt9ygMVhf/CAxbXvTnT7Bv1Wh5a/jJG1TRSIc9o=";
+    url = "https://github.com/anomalyco/opencode/releases/download/v${finalAttrs.version}/opencode-desktop-linux-amd64.deb";
+    hash = "sha256-Waiy//mh2CfD668HTzK6+M53aUXsO9jUx4ArLkdLTfY=";
   };
 
-  appimageContents = appimageTools.extractType2 { inherit pname version src; };
-in
-appimageTools.wrapType2 {
-  inherit pname version src;
+  nativeBuildInputs = [
+    dpkg
+    makeWrapper
+    autoPatchelfHook
+    wrapGAppsHook3
+  ];
 
-  extraInstallCommands = ''
-    install -Dm644 "${appimageContents}/@opencode-aidesktop.desktop" \
-      $out/share/applications/${pname}.desktop
-    substituteInPlace $out/share/applications/${pname}.desktop \
-      --replace-fail 'Exec=AppRun' "Exec=$out/bin/${pname}" \
-      --replace-fail 'Icon=@opencode-aidesktop' 'Icon=opencode-desktop' \
-      --replace-fail 'StartupWMClass=OpenCode' 'StartupWMClass=opencode-desktop'
+  buildInputs = [
+    alsa-lib
+    at-spi2-atk
+    at-spi2-core
+    atk
+    cairo
+    cups
+    dbus
+    expat
+    gdk-pixbuf
+    glib
+    gtk3
+    libdrm
+    libGL
+    libnotify
+    libsecret
+    libx11
+    libxcb
+    libxcomposite
+    libxdamage
+    libxext
+    libxfixes
+    libxkbcommon
+    libxrandr
+    libxshmfence
+    mesa
+    musl
+    nspr
+    nss
+    pango
+  ];
 
-    for size_dir in "${appimageContents}"/usr/share/icons/hicolor/*/apps; do
+  dontConfigure = true;
+  dontBuild = true;
+
+  unpackPhase = ''
+    runHook preUnpack
+    dpkg-deb -x $src .
+    runHook postUnpack
+  '';
+
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out/lib/opencode-desktop $out/bin $out/share
+    cp -r opt/OpenCode/* $out/lib/opencode-desktop/
+
+    install -Dm644 usr/share/applications/ai.opencode.desktop.desktop \
+      $out/share/applications/${finalAttrs.pname}.desktop
+    substituteInPlace $out/share/applications/${finalAttrs.pname}.desktop \
+      --replace-fail 'Exec=/opt/OpenCode/ai.opencode.desktop %U' "Exec=$out/bin/${finalAttrs.pname} %U" \
+      --replace-fail 'Icon=ai.opencode.desktop' 'Icon=opencode-desktop' \
+      --replace-fail 'StartupWMClass=ai.opencode.desktop' 'StartupWMClass=opencode-desktop'
+
+    for size_dir in usr/share/icons/hicolor/*/apps; do
       size=$(basename "$(dirname "$size_dir")")
-      src_icon="$size_dir/@opencode-aidesktop.png"
+      src_icon="$size_dir/ai.opencode.desktop.png"
       [ -f "$src_icon" ] && install -Dm644 "$src_icon" \
         "$out/share/icons/hicolor/$size/apps/opencode-desktop.png"
     done
 
+    makeWrapper $out/lib/opencode-desktop/ai.opencode.desktop $out/bin/${finalAttrs.pname} \
+      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath finalAttrs.buildInputs}" \
+      --set-default OC_ALLOW_WAYLAND 1
+
     cat > $out/bin/opencode-cli << 'EOF'
-    #!/usr/bin/env bash
-    # Wrapper for opencode CLI - searches PATH and ~/.opencode/bin
-    if command -v opencode &>/dev/null; then
-      exec opencode "$@"
-    elif [ -x "$HOME/.opencode/bin/opencode" ]; then
-      exec "$HOME/.opencode/bin/opencode" "$@"
-    else
-      echo "Error: opencode CLI not found. Install via: curl -fsSL https://opencode.ai/install | bash" >&2
-      exit 1
-    fi
-    EOF
+#!/usr/bin/env bash
+# Wrapper for opencode CLI - searches PATH and ~/.opencode/bin
+if command -v opencode &>/dev/null; then
+  exec opencode "$@"
+elif [ -x "$HOME/.opencode/bin/opencode" ]; then
+  exec "$HOME/.opencode/bin/opencode" "$@"
+else
+  echo "Error: opencode CLI not found. Install via: curl -fsSL https://opencode.ai/install | bash" >&2
+  exit 1
+fi
+EOF
     chmod +x $out/bin/opencode-cli
+
+    runHook postInstall
   '';
 
   meta = {
@@ -56,4 +145,4 @@ appimageTools.wrapType2 {
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     mainProgram = "opencode-desktop";
   };
-}
+})

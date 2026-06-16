@@ -38,7 +38,7 @@ jobs:
         if: steps.check.outputs.needs_update == 'true'
         run: |
           VERSION="${{ steps.check.outputs.latest }}"
-          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-desktop-linux-x86_64.AppImage"
+          DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-desktop-linux-amd64.deb"
 
           HASH=$(nix-prefetch-url "$DOWNLOAD_URL" 2>/dev/null)
           SRI_HASH=$(nix hash convert --to sri --hash-algo sha256 "$HASH")

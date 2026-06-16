@@ -20,8 +20,8 @@ if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
     exit 0
 fi
 
-# AppImage download URL (anomalyco switched from .deb to .AppImage around v1.14.34)
-DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${LATEST_VERSION}/opencode-desktop-linux-x86_64.AppImage"
+# Debian archive is more stable than AppImage extraction for the desktop package.
+DOWNLOAD_URL="https://github.com/anomalyco/opencode/releases/download/v${LATEST_VERSION}/opencode-desktop-linux-amd64.deb"
 
 echo "Fetching hash for $LATEST_VERSION..."
 NEW_HASH=$(nix-prefetch-url "$DOWNLOAD_URL" 2>&1 | tail -1)
