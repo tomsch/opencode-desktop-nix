@@ -39,13 +39,13 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opencode-desktop";
-  version = "1.18.5";
+  version = "1.18.6";
 
   # Prefer the Debian archive over the AppImage: upstream AppImage desktop/icon
   # names changed, while the .deb keeps the Electron install layout stable.
   src = fetchurl {
     url = "https://github.com/anomalyco/opencode/releases/download/v${finalAttrs.version}/opencode-desktop-linux-amd64.deb";
-    hash = "sha256-f3M3UYbFYbxPRpKoITp9KwGHALHvw/vMZHrP6ICmAa8=";
+    hash = "sha256-8vRjrBF6+m+EmEwgtNGWCqTxH7jvvzK7h818dB4aPm4=";
   };
 
   nativeBuildInputs = [
