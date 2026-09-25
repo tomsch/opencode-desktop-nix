@@ -50,6 +50,12 @@ Maintainers can update to the latest version:
 ./update.sh
 ```
 
+The **Auto Update** workflow checks upstream releases every six hours. It uses
+[authenticated `gh api` requests](https://cli.github.com/manual/gh_api) with the
+[workflow token](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
+API failures or missing/invalid `vMAJOR.MINOR.PATCH` release tags stop the check
+before a download or package change; they must not become a `vnull` update.
+
 ## License
 
 The Nix packaging is MIT. OpenCode itself is Apache 2.0 licensed.

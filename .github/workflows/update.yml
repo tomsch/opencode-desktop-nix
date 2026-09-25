@@ -21,17 +21,24 @@ jobs:
 
       - name: Check for updates
         id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(curl -sL "https://api.github.com/repos/anomalyco/opencode/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+          TAG=$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name')
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected an upstream release tag vMAJOR.MINOR.PATCH, got: $TAG"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
           CURRENT=$(grep 'version = ' package.nix | head -1 | sed 's/.*"\(.*\)".*/\1/')
 
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "latest=$VERSION" >> $GITHUB_OUTPUT
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "latest=$VERSION" >> "$GITHUB_OUTPUT"
 
           if [ "$VERSION" != "$CURRENT" ]; then
-            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
           else
-            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update package
